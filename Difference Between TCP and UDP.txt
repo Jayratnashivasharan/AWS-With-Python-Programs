@@ -1,4 +1,6 @@
-TCP: Transmission control protocol
+Protocols:
+Having 2 types.
+    TCP: Transmission control protocol
 connection Oriented
 provides acknowledgement
 reliable
