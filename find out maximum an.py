@@ -1,10 +1,8 @@
 # write a program to find out maximum and minimum element in tuple
 # Program to find maximum and minimum element in a tuple
 
-# Define a tuple
 my_tuple = (12, 45, 7, 23, 89, 34)
 
-# Find maximum and minimum using built-in functions
 maximum = max(my_tuple)
 minimum = min(my_tuple)
 

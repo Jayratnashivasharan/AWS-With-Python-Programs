@@ -1,0 +1,11 @@
+TCP: Transmission control protocol
+connection Oriented
+provides acknowledgement
+reliable
+slower
+
+UDP: User Datagram Protocol
+Connectionless
+not acknowledged
+not reliable
+faster

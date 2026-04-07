@@ -7,7 +7,6 @@ class Animal:
     def speak(self):
         return "This animal makes a sound."
 
-# Derived class (Inheritance)
 class Dog(Animal):
     def speak(self):   # Polymorphism (method overriding)
         return f"{self.name} says: Woof!"

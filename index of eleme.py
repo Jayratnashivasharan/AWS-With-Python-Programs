@@ -4,7 +4,6 @@
 # Define a tuple
 my_tuple = (10, 20, 30, 40, 50)
 
-# Input element to search
 element = int(input("Enter the element to find: "))
 
 # Check if element exists in tuple

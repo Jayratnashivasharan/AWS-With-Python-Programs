@@ -3,7 +3,6 @@
 class AgeNotEligibleError(Exception):
     pass
 
-# Function to check age
 def check_age(age):
     if age < 0:
         return "Invalid age. Age cannot be negative."
@@ -16,7 +15,6 @@ def check_age(age):
     else:
         return "You are a senior citizen."
 
-# Example usage
 try:
     user_age = int(input("Enter your age: "))
     print(check_age(user_age))
