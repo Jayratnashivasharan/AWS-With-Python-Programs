@@ -17,3 +17,11 @@ Load Balancer: These having a 3 types :
 2) Network Load Balancer
 3) Gateway Load Balancer 
 
+7 Layers of OSI:
+Application(Layer 7)
+Presenatation(Layer 6)
+Session(Layer 5)
+Tranport(Layer 4)
+Network(Layer 3)
+Data Link(Layer 2)
+Physical (Layer 1)
