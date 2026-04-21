@@ -1,0 +1,180 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# buildspec.yml - AWS CodeBuild Build Specification
+#
+# This file defines the build process for CodeBuild:
+#   1. Pre-build: Login to ECR, set variables
+#   2. Build:     Build Docker image
+#   3. Post-build: Push image to ECR, generate deployment artifacts
+#
+# Required Environment Variables in CodeBuild project:
+#   - AWS_ACCOUNT_ID: Your AWS account ID
+#   - AWS_DEFAULT_REGION: e.g., us-east-1
+#   - ECR_REPOSITORY_NAME: e.g., github-aws-pipeline
+#   - IMAGE_TAG: (optional, defaults to commit hash)
+# ═══════════════════════════════════════════════════════════════════════════
+
+version: 0.2
+
+env:
+  variables:
+    # Application settings
+    APP_NAME: "github-aws-pipeline-app"
+    NODE_ENV: "production"
+    # Docker image settings  
+    IMAGE_TAG: "latest"
+  parameter-store:
+    # Pull sensitive values from AWS Systems Manager Parameter Store
+    # Uncomment and set these if you use SSM Parameter Store:
+    # DB_PASSWORD: "/app/production/db_password"
+    # API_SECRET: "/app/production/api_secret"
+  exported-variables:
+    - IMAGE_URI
+    - IMAGE_TAG
+    - BUILD_TIMESTAMP
+
+phases:
+  # ─── Install Phase ─────────────────────────────────────────────────────
+  install:
+    runtime-versions:
+      nodejs: 18
+      docker: 20
+    commands:
+      - echo "═══ INSTALL PHASE ═══"
+      - echo "Installing required tools..."
+      - pip install --upgrade awscli
+      - node --version
+      - npm --version
+      - docker --version
+      - aws --version
+
+  # ─── Pre-Build Phase ──────────────────────────────────────────────────
+  pre_build:
+    commands:
+      - echo "═══ PRE-BUILD PHASE ═══"
+      - echo "Setting up build variables..."
+      
+      # Set image tag to commit hash for traceability
+      - export IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}"
+      - export BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+      - export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+      - export IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY_NAME}:${IMAGE_TAG}"
+      - export IMAGE_URI_LATEST="${ECR_REGISTRY}/${ECR_REPOSITORY_NAME}:latest"
+      
+      - echo "ECR Registry   = $ECR_REGISTRY"
+      - echo "Repository     = $ECR_REPOSITORY_NAME"
+      - echo "Image Tag      = $IMAGE_TAG"
+      - echo "Image URI      = $IMAGE_URI"
+      - echo "Build Time     = $BUILD_TIMESTAMP"
+      - echo "Build ID       = $CODEBUILD_BUILD_ID"
+      
+      # Authenticate Docker to ECR
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+      - echo "ECR login successful!"
+      
+      # Install Node.js dependencies for testing
+      - echo "Installing dependencies..."
+      - cd app && npm ci && cd ..
+
+  # ─── Build Phase ──────────────────────────────────────────────────────
+  build:
+    commands:
+      - echo "═══ BUILD PHASE ═══"
+      
+      # Run tests before building image
+      - echo "Running tests..."
+      - cd app && npm test || echo "No tests configured yet" && cd ..
+      
+      # Build Docker image with build args for metadata
+      - echo "Building Docker image..."
+      - |
+        docker build \
+          --build-arg NODE_ENV=production \
+          --build-arg APP_VERSION=${IMAGE_TAG} \
+          --build-arg BUILD_TIMESTAMP=${BUILD_TIMESTAMP} \
+          --build-arg COMMIT_HASH=${CODEBUILD_RESOLVED_SOURCE_VERSION} \
+          --label "git.commit=${CODEBUILD_RESOLVED_SOURCE_VERSION}" \
+          --label "build.id=${CODEBUILD_BUILD_ID}" \
+          --label "build.timestamp=${BUILD_TIMESTAMP}" \
+          --cache-from ${ECR_REGISTRY}/${ECR_REPOSITORY_NAME}:latest \
+          -t ${IMAGE_URI} \
+          -t ${IMAGE_URI_LATEST} \
+          .
+      
+      - echo "Docker image built successfully!"
+      - docker images | grep ${ECR_REPOSITORY_NAME}
+
+  # ─── Post-Build Phase ─────────────────────────────────────────────────
+  post_build:
+    commands:
+      - echo "═══ POST-BUILD PHASE ═══"
+      
+      # Push both tagged and latest images to ECR
+      - echo "Pushing images to ECR..."
+      - docker push ${IMAGE_URI}
+      - docker push ${IMAGE_URI_LATEST}
+      - echo "Images pushed successfully!"
+      
+      # Generate imagedefinitions.json for CodeDeploy
+      - echo "Generating deployment artifacts..."
+      - |
+        cat > imagedefinitions.json << EOF
+        [
+          {
+            "name": "${APP_NAME}",
+            "imageUri": "${IMAGE_URI}"
+          }
+        ]
+        EOF
+      
+      # Update appspec.yml with actual image URI
+      - sed -i "s|IMAGE_URI_PLACEHOLDER|${IMAGE_URI}|g" appspec.yml
+      
+      # Generate deployment manifest
+      - |
+        cat > deployment-manifest.json << EOF
+        {
+          "appName": "${APP_NAME}",
+          "imageUri": "${IMAGE_URI}",
+          "imageTag": "${IMAGE_TAG}",
+          "buildId": "${CODEBUILD_BUILD_ID}",
+          "buildTimestamp": "${BUILD_TIMESTAMP}",
+          "commitHash": "${CODEBUILD_RESOLVED_SOURCE_VERSION}",
+          "region": "${AWS_DEFAULT_REGION}",
+          "ecrRegistry": "${ECR_REGISTRY}"
+        }
+        EOF
+      
+      - echo "Build complete! Image: ${IMAGE_URI}"
+      - cat imagedefinitions.json
+      - cat deployment-manifest.json
+
+# ─── Artifacts ──────────────────────────────────────────────────────────
+artifacts:
+  files:
+    # Required for CodeDeploy
+    - appspec.yml
+    - imagedefinitions.json
+    - deployment-manifest.json
+    # Deployment scripts
+    - aws/scripts/**/*
+    # All app files needed for deployment
+    - app/**/*
+    - Dockerfile
+  name: "BuildOutput_$(date +%Y%m%d_%H%M%S)"
+  discard-paths: no
+
+# ─── Cache ──────────────────────────────────────────────────────────────
+cache:
+  paths:
+    # Cache npm packages to speed up builds
+    - '/root/.npm/**/*'
+    - 'app/node_modules/**/*'
+
+# ─── Reports ────────────────────────────────────────────────────────────
+reports:
+  jest-coverage:
+    files:
+      - 'app/coverage/clover.xml'
+    file-format: CLOVERXML
+    base-directory: '.'

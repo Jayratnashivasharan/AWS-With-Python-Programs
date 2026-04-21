@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AWS Pipeline Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- Background Grid -->
+  <div class="bg-grid"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">Pipeline<span class="accent">OS</span></span>
+      </div>
+      <nav class="nav">
+        <a href="#overview" class="nav-link active">Overview</a>
+        <a href="#pipeline" class="nav-link">Pipeline</a>
+        <a href="#metrics" class="nav-link">Metrics</a>
+        <a href="#logs" class="nav-link">Logs</a>
+      </nav>
+      <div class="header-status">
+        <span class="pulse-dot"></span>
+        <span id="status-text">Connecting...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- Hero Banner -->
+    <section class="hero" id="overview">
+      <div class="hero-label">DEPLOYMENT DASHBOARD</div>
+      <h1 class="hero-title">GitHub → AWS<br /><span class="accent">CodeDeploy</span> Pipeline</h1>
+      <p class="hero-desc">
+        Production-grade CI/CD pipeline · Docker containerized · ECR · CodeBuild · CodeDeploy
+      </p>
+      <div class="hero-badges">
+        <span class="badge badge-green">● LIVE</span>
+        <span class="badge badge-blue">v<span id="app-version">1.0.0</span></span>
+        <span class="badge badge-mono" id="commit-hash">loading...</span>
+      </div>
+    </section>
+
+    <!-- Info Cards Row -->
+    <section class="cards-row">
+      <div class="card" id="card-env">
+        <div class="card-label">ENVIRONMENT</div>
+        <div class="card-value" id="info-env">—</div>
+        <div class="card-sub">NODE_ENV</div>
+      </div>
+      <div class="card" id="card-uptime">
+        <div class="card-label">UPTIME</div>
+        <div class="card-value" id="info-uptime">—</div>
+        <div class="card-sub">since last deploy</div>
+      </div>
+      <div class="card" id="card-memory">
+        <div class="card-label">HEAP USED</div>
+        <div class="card-value" id="info-memory">—</div>
+        <div class="card-sub">MB / heap total</div>
+      </div>
+      <div class="card" id="card-region">
+        <div class="card-label">AWS REGION</div>
+        <div class="card-value" id="info-region">—</div>
+        <div class="card-sub">deployment target</div>
+      </div>
+    </section>
+
+    <!-- Pipeline Stages -->
+    <section class="section" id="pipeline">
+      <div class="section-header">
+        <h2 class="section-title">CI/CD Pipeline Stages</h2>
+        <span class="section-badge">3 stages</span>
+      </div>
+      <div class="pipeline-track">
+        <div class="pipeline-stage" id="stage-source">
+          <div class="stage-connector"></div>
+          <div class="stage-icon">⬡</div>
+          <div class="stage-body">
+            <div class="stage-name">SOURCE</div>
+            <div class="stage-provider">GitHub</div>
+            <div class="stage-desc">Webhook triggers on push to main branch. CodePipeline pulls latest commit.</div>
+            <div class="stage-status">
+              <span class="dot dot-green"></span>Completed
+            </div>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-stage" id="stage-build">
+          <div class="stage-icon build-icon">⚙</div>
+          <div class="stage-body">
+            <div class="stage-name">BUILD</div>
+            <div class="stage-provider">AWS CodeBuild</div>
+            <div class="stage-desc">Builds Docker image, runs tests, pushes to ECR with commit-hash tag.</div>
+            <div class="stage-status">
+              <span class="dot dot-green"></span>Completed
+            </div>
+            <div class="stage-meta" id="build-id">Build #—</div>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-stage" id="stage-deploy">
+          <div class="stage-icon deploy-icon">⬢</div>
+          <div class="stage-body">
+            <div class="stage-name">DEPLOY</div>
+            <div class="stage-provider">AWS CodeDeploy</div>
+            <div class="stage-desc">Pulls image from ECR, stops old container, starts new one on EC2 via appspec.yml hooks.</div>
+            <div class="stage-status">
+              <span class="dot dot-green"></span>Completed
+            </div>
+            <div class="stage-meta" id="deploy-id">Deployment #—</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two Column: Deployment Info + Health -->
+    <section class="two-col">
+
+      <!-- Deployment Info -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Deployment Info</span>
+          <span class="panel-tag">LIVE</span>
+        </div>
+        <div class="info-list" id="deployment-info">
+          <div class="info-row">
+            <span class="info-key">Docker Image</span>
+            <span class="info-val mono" id="docker-image">loading...</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">Image Tag</span>
+            <span class="info-val mono" id="image-tag">loading...</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">ECR Registry</span>
+            <span class="info-val mono" id="ecr-registry">loading...</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">CodeDeploy App</span>
+            <span class="info-val mono" id="codedeploy-app">loading...</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">Deploy Group</span>
+            <span class="info-val mono" id="deploy-group">loading...</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">Deploy Time</span>
+            <span class="info-val mono" id="deploy-time">loading...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Health Endpoints -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Health Endpoints</span>
+          <button class="panel-btn" onclick="runHealthChecks()">Run Checks</button>
+        </div>
+        <div class="health-list" id="health-list">
+          <div class="health-row" data-endpoint="/health">
+            <div class="health-info">
+              <span class="health-path">/health</span>
+              <span class="health-desc">Basic liveness check</span>
+            </div>
+            <span class="health-badge waiting">WAITING</span>
+          </div>
+          <div class="health-row" data-endpoint="/health/detailed">
+            <div class="health-info">
+              <span class="health-path">/health/detailed</span>
+              <span class="health-desc">System metrics</span>
+            </div>
+            <span class="health-badge waiting">WAITING</span>
+          </div>
+          <div class="health-row" data-endpoint="/health/ready">
+            <div class="health-info">
+              <span class="health-path">/health/ready</span>
+              <span class="health-desc">Readiness probe</span>
+            </div>
+            <span class="health-badge waiting">WAITING</span>
+          </div>
+          <div class="health-row" data-endpoint="/api/v1/">
+            <div class="health-info">
+              <span class="health-path">/api/v1/</span>
+              <span class="health-desc">API root</span>
+            </div>
+            <span class="health-badge waiting">WAITING</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- API Explorer -->
+    <section class="section" id="metrics">
+      <div class="section-header">
+        <h2 class="section-title">API Explorer</h2>
+        <span class="section-badge">live</span>
+      </div>
+      <div class="api-grid">
+        <button class="api-btn" onclick="callApi('/api/v1/')">
+          <span class="api-method">GET</span>
+          <span class="api-path">/api/v1/</span>
+          <span class="api-desc">API Info</span>
+        </button>
+        <button class="api-btn" onclick="callApi('/api/v1/info')">
+          <span class="api-method">GET</span>
+          <span class="api-path">/api/v1/info</span>
+          <span class="api-desc">App Info</span>
+        </button>
+        <button class="api-btn" onclick="callApi('/api/v1/deployment')">
+          <span class="api-method">GET</span>
+          <span class="api-path">/api/v1/deployment</span>
+          <span class="api-desc">Deploy Details</span>
+        </button>
+        <button class="api-btn" onclick="callApi('/api/v1/pipeline')">
+          <span class="api-method">GET</span>
+          <span class="api-path">/api/v1/pipeline</span>
+          <span class="api-desc">Pipeline Stages</span>
+        </button>
+        <button class="api-btn" onclick="callApi('/api/v1/metrics')">
+          <span class="api-method">GET</span>
+          <span class="api-path">/api/v1/metrics</span>
+          <span class="api-desc">App Metrics</span>
+        </button>
+        <button class="api-btn" onclick="callApi('/health/detailed')">
+          <span class="api-method">GET</span>
+          <span class="api-path">/health/detailed</span>
+          <span class="api-desc">Health Detail</span>
+        </button>
+      </div>
+
+      <!-- Response Viewer -->
+      <div class="response-box" id="response-box">
+        <div class="response-header">
+          <span class="response-label" id="response-label">Click an endpoint above</span>
+          <span class="response-status" id="response-status"></span>
+          <button class="copy-btn" onclick="copyResponse()" id="copy-btn" style="display:none">Copy</button>
+        </div>
+        <pre class="response-body" id="response-body">// Response will appear here...</pre>
+      </div>
+    </section>
+
+    <!-- Log Stream -->
+    <section class="section" id="logs">
+      <div class="section-header">
+        <h2 class="section-title">Activity Log</h2>
+        <button class="section-btn" onclick="clearLogs()">Clear</button>
+      </div>
+      <div class="log-terminal" id="log-terminal">
+        <div class="log-entry log-info">[INIT] Dashboard initialized. Fetching deployment data...</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span class="footer-left">GitHub → AWS CodeDeploy Pipeline · Node.js + Docker + ECR</span>
+      <span class="footer-right">
+        <span id="footer-time">—</span> ·
+        <span id="node-ver">Node —</span>
+      </span>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

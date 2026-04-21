@@ -1,0 +1,77 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# appspec.yml - AWS CodeDeploy Application Specification
+#
+# This file controls how CodeDeploy deploys the application to EC2 instances.
+# It defines:
+#   - Files to deploy
+#   - Lifecycle hooks (scripts to run at each stage)
+#   - Permissions for deployed files
+#
+# Deployment Lifecycle Order:
+#   1. ApplicationStop        → Stop existing app (stop.sh)
+#   2. DownloadBundle         → CodeDeploy downloads bundle (automatic)
+#   3. BeforeInstall          → Pre-install setup (install.sh)
+#   4. Install                → Copy files to destination (automatic)
+#   5. AfterInstall           → Post-install tasks
+#   6. ApplicationStart       → Start the new app (start.sh)
+#   7. ValidateService        → Verify deployment succeeded (validate.sh)
+# ═══════════════════════════════════════════════════════════════════════════
+
+version: 0.0
+os: linux
+
+# ─── Files to Deploy ────────────────────────────────────────────────────────
+files:
+  - source: /
+    destination: /opt/app
+    overwrite: yes
+
+# ─── File Permissions ───────────────────────────────────────────────────────
+permissions:
+  - object: /opt/app/aws/scripts
+    pattern: "*.sh"
+    owner: root
+    group: root
+    mode: 755
+    type:
+      - file
+  
+  - object: /opt/app
+    pattern: "**"
+    owner: ec2-user
+    group: ec2-user
+    type:
+      - file
+      - directory
+
+# ─── Lifecycle Hooks ─────────────────────────────────────────────────────────
+hooks:
+  # ApplicationStop: Gracefully stop the currently running application
+  ApplicationStop:
+    - location: aws/scripts/stop.sh
+      timeout: 60
+      runas: root
+
+  # BeforeInstall: Install prerequisites and prepare the environment
+  BeforeInstall:
+    - location: aws/scripts/install.sh
+      timeout: 300
+      runas: root
+
+  # AfterInstall: Set up configuration after files are copied
+  AfterInstall:
+    - location: aws/scripts/after_install.sh
+      timeout: 120
+      runas: root
+
+  # ApplicationStart: Start the new version of the application
+  ApplicationStart:
+    - location: aws/scripts/start.sh
+      timeout: 120
+      runas: root
+
+  # ValidateService: Verify the application is running correctly
+  ValidateService:
+    - location: aws/scripts/validate.sh
+      timeout: 60
+      runas: root
